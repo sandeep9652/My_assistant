@@ -1,330 +1,69 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>My AI Assistant</title>
-
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: #1a1a2e;
-            color: white;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: auto;
-            padding: 20px;
-        }
-
-        h1 {
-            text-align: center;
-            padding: 20px;
-            color: #00d2ff;
-        }
-
-        #chat {
-            height: 500px;
-            overflow-y: auto;
-            background: #16213e;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-
-        .msg {
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 8px;
-            line-height: 1.5;
-            word-wrap: break-word;
-        }
-
-        .user {
-            background: #0f3460;
-            text-align: right;
-        }
-
-        .bot {
-            background: #1a1a40;
-        }
-
-        .input-area {
-            display: flex;
-            gap: 10px;
-        }
-
-        input {
-            flex: 1;
-            padding: 12px;
-            border-radius: 8px;
-            border: none;
-            font-size: 16px;
-            outline: none;
-        }
-
-        button {
-            padding: 12px 24px;
-            background: #00d2ff;
-            border: none;
-            border-radius: 8px;
-            color: black;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        button:hover {
-            background: #00b4d8;
-        }
-
-        button:disabled {
-            background: #777;
-            cursor: not-allowed;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial; background: #1a1a2e; color: white; }
+        .container { max-width: 800px; margin: auto; padding: 20px; }
+        h1 { text-align: center; padding: 20px; color: #00d2ff; }
+        #chat { height: 500px; overflow-y: auto; background: #16213e; 
+                border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+        .msg { margin: 10px 0; padding: 10px; border-radius: 8px; }
+        .user { background: #0f3460; text-align: right; }
+        .bot { background: #1a1a40; }
+        .input-area { display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px; border-radius: 8px; border: none; 
+                font-size: 16px; }
+        button { padding: 12px 24px; background: #00d2ff; border: none; 
+                 border-radius: 8px; color: black; font-weight: bold; 
+                 cursor: pointer; font-size: 16px; }
+        button:hover { background: #00b4d8; }
     </style>
 </head>
-
 <body>
-
-<div class="container">
-
-    <h1>🤖 EVA - Automation Assistant</h1>
-
-    <div id="chat"></div>
-
-    <div class="input-area">
-
-        <input
-            id="input"
-            type="text"
-            placeholder="Ask me anything about automation testing..."
-        >
-
-        <button id="sendButton" onclick="sendMsg()">
-            Send
-        </button>
-
+    <div class="container">
+        <h1>🤖 EVA - Automation Assistant</h1>
+        <div id="chat"></div>
+        <div class="input-area">
+            <input id="input" placeholder="Ask me anything..." 
+                   onkeypress="if(event.key==='Enter')sendMsg()">
+            <button onclick="sendMsg()">Send</button>
+        </div>
     </div>
+    <script>
+        const API = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3";
+        const chat = document.getElementById('chat');
 
-</div>
+        async function sendMsg() {
+            const input = document.getElementById('input');
+            const q = input.value.trim();
+            if (!q) return;
+            
+            chat.innerHTML += `<div class="msg user">👤 ${q}</div>`;
+            input.value = '';
+            chat.innerHTML += `<div class="msg bot" id="loading">🤖 Thinking...</div>`;
+            chat.scrollTop = chat.scrollHeight;
 
-<script>
-
-    // Hugging Face OpenAI-compatible API
-    const API_URL =
-        "https://router.huggingface.co/v1/chat/completions";
-
-    // IMPORTANT:
-    // Do NOT put your real Hugging Face token in frontend code
-    // for a production application.
-    const HF_TOKEN = "YOUR_HUGGING_FACE_TOKEN";
-
-    const chat = document.getElementById("chat");
-    const input = document.getElementById("input");
-    const sendButton = document.getElementById("sendButton");
-
-
-    // Allow Enter key to send message
-    input.addEventListener("keypress", function(event) {
-
-        if (event.key === "Enter") {
-            sendMsg();
-        }
-
-    });
-
-
-    async function sendMsg() {
-
-        const question = input.value.trim();
-
-        if (!question) {
-            return;
-        }
-
-
-        // Display user message
-        chat.innerHTML += `
-            <div class="msg user">
-                ${escapeHtml(question)}
-            </div>
-        `;
-
-
-        // Clear input
-        input.value = "";
-
-
-        // Disable button while AI is responding
-        sendButton.disabled = true;
-
-
-        // Loading message
-        const loadingId = "loading-" + Date.now();
-
-        chat.innerHTML += `
-            <div class="msg bot" id="${loadingId}">
-                🤔 Thinking...
-            </div>
-        `;
-
-
-        chat.scrollTop = chat.scrollHeight;
-
-
-        try {
-
-            const response = await fetch(API_URL, {
-
-                method: "POST",
-
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${HF_TOKEN}`
-                },
-
-                body: JSON.stringify({
-
-                    model: "openai/gpt-oss-120b:fastest",
-
-                    messages: [
-
-                        {
-                            role: "system",
-
-                            content:
-                                `You are EVA, an expert software automation
-                                testing assistant.
-
-                                Your expertise includes:
-
-                                - Playwright
-                                - Selenium
-                                - Cypress
-                                - JavaScript
-                                - TypeScript
-                                - Java
-                                - API testing
-                                - REST Assured
-                                - Postman
-                                - Cucumber
-                                - BDD
-                                - Page Object Model
-                                - CI/CD
-                                - Jenkins
-                                - GitHub Actions
-                                - Azure DevOps
-                                - SQL
-                                - Test automation frameworks
-
-                                Give practical answers.
-                                When providing code, explain it simply.`
-                        },
-
-                        {
-                            role: "user",
-                            content: question
-                        }
-
-                    ],
-
-                    max_tokens: 500,
-
-                    temperature: 0.7,
-
-                    stream: false
-
-                })
-
-            });
-
-
-            // Check HTTP response
-            if (!response.ok) {
-
-                const errorText = await response.text();
-
-                throw new Error(
-                    `HTTP ${response.status}: ${errorText}`
-                );
+            try {
+                const r = await fetch(API, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                        inputs: `<s>[INST] You are EVA, an automation testing expert. ${q} [/INST]`,
+                        parameters: { max_new_tokens: 500 }
+                    })
+                });
+                const data = await r.json();
+                document.getElementById('loading').remove();
+                const answer = data[0]?.generated_text?.split('[/INST]').pop() || 'Please try again.';
+                chat.innerHTML += `<div class="msg bot">🤖 ${answer}</div>`;
+            } catch(e) {
+                document.getElementById('loading').remove();
+                chat.innerHTML += `<div class="msg bot">🤖 Error. Try again.</div>`;
             }
-
-
-            const data = await response.json();
-
-
-            // Remove loading message
-            const loadingElement =
-                document.getElementById(loadingId);
-
-            if (loadingElement) {
-                loadingElement.remove();
-            }
-
-
-            // Get AI answer
-            const answer =
-                data?.choices?.[0]?.message?.content ||
-                "Sorry, I could not generate an answer.";
-
-
-            // Display AI answer
-            chat.innerHTML += `
-                <div class="msg bot">
-                    <strong>🤖 EVA:</strong><br>
-                    ${escapeHtml(answer)}
-                </div>
-            `;
-
-
-        } catch (error) {
-
-            console.error(error);
-
-
-            const loadingElement =
-                document.getElementById(loadingId);
-
-            if (loadingElement) {
-                loadingElement.remove();
-            }
-
-
-            chat.innerHTML += `
-                <div class="msg bot">
-                    ❌ Error: ${escapeHtml(error.message)}
-                </div>
-            `;
-
+            chat.scrollTop = chat.scrollHeight;
         }
-
-
-        sendButton.disabled = false;
-
-        chat.scrollTop = chat.scrollHeight;
-    }
-
-
-    // Prevent HTML injection from user/AI text
-    function escapeHtml(text) {
-
-        const div = document.createElement("div");
-
-        div.textContent = text;
-
-        return div.innerHTML;
-    }
-
-</script>
-
+    </script>
 </body>
 </html>
