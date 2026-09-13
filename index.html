@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sandeep - AI Assistant</title>
+    <title>EVA - AI Assistant</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial; background: #1a1a2e; color: white; }
@@ -9,8 +9,8 @@
         h1 { text-align: center; padding: 20px; color: #00d2ff; }
         #chat { height: 500px; overflow-y: auto; background: #16213e;
                 border-radius: 10px; padding: 15px; margin-bottom: 15px; }
-        .msg { margin: 10px 0; padding: 10px; border-radius: 8px; 
-               white-space: pre-wrap; word-wrap: break-word; }
+        .msg { margin: 10px 0; padding: 10px; border-radius: 8px;
+               white-space: pre-wrap; word-wrap: break-word; line-height: 1.5; }
         .user { background: #0f3460; text-align: right; }
         .bot { background: #1a1a40; }
         .input-area { display: flex; gap: 10px; }
@@ -35,13 +35,12 @@
                    onkeypress="if(event.key==='Enter')sendMsg()">
             <button id="btn" onclick="sendMsg()">Send</button>
         </div>
-        <div class="status">Powered by HuggingFace AI (FREE)</div>
+        <div class="status">Powered by Free AI</div>
     </div>
     <script>
-        const TOKEN = "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";
-        const API = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3";
         const chat = document.getElementById('chat');
         const btn = document.getElementById('btn');
+        let history = [];
 
         async function sendMsg() {
             const input = document.getElementById('input');
@@ -55,30 +54,60 @@
             chat.innerHTML += '<div class="msg bot" id="loading">🤖 Thinking...</div>';
             chat.scrollTop = chat.scrollHeight;
 
+            history.push({ role: "user", content: q });
+
             try {
-                const r = await fetch(API, {
+                // Using free DuckDuckGo AI API
+                const r = await fetch("https://api.duckduckgo.com/duckchat/v1/chat", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "Authorization": "Bearer " + TOKEN
+                        "x-vqd-accept": "1"
                     },
                     body: JSON.stringify({
-                        inputs: "<s>[INST] You are EVA, a helpful AI assistant. Answer clearly. " + q + " [/INST]",
-                        parameters: { max_new_tokens: 800, temperature: 0.7 }
+                        model: "gpt-4o-mini",
+                        messages: [
+                            { role: "system", content: "You are EVA, a helpful AI assistant created by Sandeep. You help with coding, automation testing, Playwright, C#, and general questions. Be friendly and helpful." },
+                            ...history
+                        ]
                     })
                 });
-                const data = await r.json();
-                document.getElementById('loading').remove();
 
-                if (data.error) {
-                    chat.innerHTML += '<div class="msg bot">🤖 Model loading... Try again in 30 seconds.</div>';
-                } else {
-                    const answer = data[0]?.generated_text?.split('[/INST]').pop() || 'Please try again.';
+                // If DuckDuckGo fails, try backup
+                if (!r.ok) {
+                    throw new Error("Primary API failed");
+                }
+
+                const text = await r.text();
+                const lines = text.split('\n').filter(l => l.startsWith('data:'));
+                let answer = '';
+                for (const line of lines) {
+                    try {
+                        const json = JSON.parse(line.replace('data: ', ''));
+                        if (json.message) answer += json.message;
+                    } catch(e) {}
+                }
+
+                document.getElementById('loading').remove();
+                if (answer) {
+                    history.push({ role: "assistant", content: answer });
                     chat.innerHTML += '<div class="msg bot">🤖 ' + answer + '</div>';
+                } else {
+                    throw new Error("No answer");
                 }
             } catch(e) {
-                document.getElementById('loading').remove();
-                chat.innerHTML += '<div class="msg bot">🤖 Error. Please try again.</div>';
+                document.getElementById('loading')?.remove();
+                // Backup: Use free Pollinations AI
+                try {
+                    const backup = await fetch("https://text.pollinations.ai/" + encodeURIComponent(
+                        "You are EVA, a helpful AI assistant. " + q
+                    ));
+                    const answer = await backup.text();
+                    history.push({ role: "assistant", content: answer });
+                    chat.innerHTML += '<div class="msg bot">🤖 ' + answer + '</div>';
+                } catch(e2) {
+                    chat.innerHTML += '<div class="msg bot">🤖 Sorry, please try again in a moment.</div>';
+                }
             }
             btn.disabled = false;
             btn.textContent = 'Send';
