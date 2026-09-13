@@ -7,53 +7,81 @@
         body { font-family: Arial; background: #1a1a2e; color: white; }
         .container { max-width: 800px; margin: auto; padding: 20px; }
         h1 { text-align: center; padding: 20px; color: #00d2ff; }
-        #chat { height: 500px; overflow-y: auto; background: #16213e; 
+        #chat { height: 500px; overflow-y: auto; background: #16213e;
                 border-radius: 10px; padding: 15px; margin-bottom: 15px; }
-        .msg { margin: 10px 0; padding: 10px; border-radius: 8px; }
+        .msg { margin: 10px 0; padding: 10px; border-radius: 8px; 
+               white-space: pre-wrap; word-wrap: break-word; }
         .user { background: #0f3460; text-align: right; }
         .bot { background: #1a1a40; }
         .input-area { display: flex; gap: 10px; }
-        input { flex: 1; padding: 12px; border-radius: 8px; border: none; 
+        input { flex: 1; padding: 12px; border-radius: 8px; border: none;
                 font-size: 16px; }
-        button { padding: 12px 24px; background: #00d2ff; border: none; 
-                 border-radius: 8px; color: black; font-weight: bold; 
+        button { padding: 12px 24px; background: #00d2ff; border: none;
+                 border-radius: 8px; color: black; font-weight: bold;
                  cursor: pointer; font-size: 16px; }
+        button:hover { background: #00b4d8; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        .status { text-align: center; color: #888; font-size: 12px; margin-top: 5px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>EVA - AI Assistant</h1>
-        <div id="chat"></div>
-        <div class="input-area">
-            <input id="input" placeholder="Ask me anything..." 
-                   onkeypress="if(event.key==='Enter')sendMsg()">
-            <button onclick="sendMsg()">Send</button>
+        <h1>🤖 EVA - AI Assistant</h1>
+        <div id="chat">
+            <div class="msg bot">🤖 Hi! I'm EVA, your AI assistant. Ask me anything!</div>
         </div>
+        <div class="input-area">
+            <input id="input" placeholder="Ask me anything..."
+                   onkeypress="if(event.key==='Enter')sendMsg()">
+            <button id="btn" onclick="sendMsg()">Send</button>
+        </div>
+        <div class="status">Powered by HuggingFace AI (FREE)</div>
     </div>
     <script>
+        const TOKEN = "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";
+        const API = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3";
         const chat = document.getElementById('chat');
+        const btn = document.getElementById('btn');
+
         async function sendMsg() {
             const input = document.getElementById('input');
             const q = input.value.trim();
             if (!q) return;
-            chat.innerHTML += '<div class="msg user">You: ' + q + '</div>';
+
+            btn.disabled = true;
+            btn.textContent = '...';
+            chat.innerHTML += '<div class="msg user">👤 ' + q + '</div>';
             input.value = '';
-            chat.innerHTML += '<div class="msg bot" id="loading">Thinking...</div>';
+            chat.innerHTML += '<div class="msg bot" id="loading">🤖 Thinking...</div>';
             chat.scrollTop = chat.scrollHeight;
+
             try {
-                const r = await fetch(
-                    "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3",
-                    { method: "POST", headers: {"Content-Type":"application/json"},
-                      body: JSON.stringify({inputs: "[INST] " + q + " [/INST]", parameters:{max_new_tokens:500}})
-                    });
+                const r = await fetch(API, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + TOKEN
+                    },
+                    body: JSON.stringify({
+                        inputs: "<s>[INST] You are EVA, a helpful AI assistant. Answer clearly. " + q + " [/INST]",
+                        parameters: { max_new_tokens: 800, temperature: 0.7 }
+                    })
+                });
                 const data = await r.json();
                 document.getElementById('loading').remove();
-                const answer = data[0]?.generated_text?.split('[/INST]').pop() || 'Please try again.';
-                chat.innerHTML += '<div class="msg bot">EVA: ' + answer + '</div>';
+
+                if (data.error) {
+                    chat.innerHTML += '<div class="msg bot">🤖 Model loading... Try again in 30 seconds.</div>';
+                } else {
+                    const answer = data[0]?.generated_text?.split('[/INST]').pop() || 'Please try again.';
+                    chat.innerHTML += '<div class="msg bot">🤖 ' + answer + '</div>';
+                }
             } catch(e) {
                 document.getElementById('loading').remove();
-                chat.innerHTML += '<div class="msg bot">EVA: Error. Try again.</div>';
+                chat.innerHTML += '<div class="msg bot">🤖 Error. Please try again.</div>';
             }
+            btn.disabled = false;
+            btn.textContent = 'Send';
             chat.scrollTop = chat.scrollHeight;
         }
     </script>
