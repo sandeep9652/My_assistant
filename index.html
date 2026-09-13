@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EVA - AI Assistant</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial; background: #1a1a2e; color: white; }
+        .container { max-width: 800px; margin: auto; padding: 20px; }
+        h1 { text-align: center; padding: 20px; color: #00d2ff; }
+        #chat { height: 500px; overflow-y: auto; background: #16213e; 
+                border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+        .msg { margin: 10px 0; padding: 10px; border-radius: 8px; }
+        .user { background: #0f3460; text-align: right; }
+        .bot { background: #1a1a40; }
+        .input-area { display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px; border-radius: 8px; border: none; 
+                font-size: 16px; }
+        button { padding: 12px 24px; background: #00d2ff; border: none; 
+                 border-radius: 8px; color: black; font-weight: bold; 
+                 cursor: pointer; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>EVA - AI Assistant</h1>
+        <div id="chat"></div>
+        <div class="input-area">
+            <input id="input" placeholder="Ask me anything..." 
+                   onkeypress="if(event.key==='Enter')sendMsg()">
+            <button onclick="sendMsg()">Send</button>
+        </div>
+    </div>
+    <script>
+        const chat = document.getElementById('chat');
+        async function sendMsg() {
+            const input = document.getElementById('input');
+            const q = input.value.trim();
+            if (!q) return;
+            chat.innerHTML += '<div class="msg user">You: ' + q + '</div>';
+            input.value = '';
+            chat.innerHTML += '<div class="msg bot" id="loading">Thinking...</div>';
+            chat.scrollTop = chat.scrollHeight;
+            try {
+                const r = await fetch(
+                    "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3",
+                    { method: "POST", headers: {"Content-Type":"application/json"},
+                      body: JSON.stringify({inputs: "[INST] " + q + " [/INST]", parameters:{max_new_tokens:500}})
+                    });
+                const data = await r.json();
+                document.getElementById('loading').remove();
+                const answer = data[0]?.generated_text?.split('[/INST]').pop() || 'Please try again.';
+                chat.innerHTML += '<div class="msg bot">EVA: ' + answer + '</div>';
+            } catch(e) {
+                document.getElementById('loading').remove();
+                chat.innerHTML += '<div class="msg bot">EVA: Error. Try again.</div>';
+            }
+            chat.scrollTop = chat.scrollHeight;
+        }
+    </script>
+</body>
+</html>
