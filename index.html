@@ -28,7 +28,7 @@
     <div class="container">
         <h1>🤖 Sanju-AI Assistant</h1>
         <div id="chat">
-            <div class="msg bot">🤖 Hi! I'm Sanju-AI, your AI assistant created by Sandeep. Ask me anything!</div>
+            <div class="msg bot">🤖 Hi! I'm Sanju-AI, your AI assistant. Ask me anything!</div>
         </div>
         <div class="input-area">
             <input id="input" placeholder="Ask Sanju-AI anything..."
@@ -40,6 +40,9 @@
     <script>
         const chat = document.getElementById('chat');
         const btn = document.getElementById('btn');
+        const messages = [
+            { role: "system", content: "You are Sanju-AI, a helpful AI assistant created by Sandeep. You help with coding, automation testing, Playwright, C#, and general questions. Be friendly and helpful." }
+        ];
 
         async function sendMsg() {
             const input = document.getElementById('input');
@@ -50,27 +53,123 @@
             btn.textContent = 'Thinking...';
             chat.innerHTML += '<div class="msg user">👤 ' + q + '</div>';
             input.value = '';
-            chat.innerHTML += '<div class="msg bot" id="loading">🤖 Sanju-AI is thinking... (may take 10-15 seconds)</div>';
+            chat.innerHTML += '<div class="msg bot" id="loading">🤖 Thinking... (10-20 seconds)</div>';
             chat.scrollTop = chat.scrollHeight;
 
-            const systemPrompt = "You are Sanju-AI, a helpful AI assistant created by Sandeep. You help with coding, automation testing, Playwright, C#, and general questions. Be friendly, clear and helpful. Give detailed answers. Always introduce yourself as Sanju-AI when asked.";
-            
-            const fullPrompt = systemPrompt + " User asks: " + q;
-            const url = "https://text.pollinations.ai/" + encodeURIComponent(fullPrompt) + "?nologo=true";
+            messages.push({ role: "user", content: q });
 
-            try {
-                const r = await fetch(url);
-                document.getElementById('loading')?.remove();
+            let answered = false;
 
-                if (r.ok) {
-                    const answer = await r.text();
-                    chat.innerHTML += '<div class="msg bot">🤖 ' + answer + '</div>';
-                } else {
-                    chat.innerHTML += '<div class="msg bot">🤖 Server busy. Please try again.</div>';
-                }
-            } catch(e) {
+            // API 1: DeepInfra (FREE, no token)
+            if (!answered) {
+                try {
+                    const r = await fetch("https://api.deepinfra.com/v1/openai/chat/completions", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            model: "meta-llama/Meta-Llama-3.1-8B-Instruct",
+                            messages: messages,
+                            max_tokens: 800
+                        })
+                    });
+                    if (r.ok) {
+                        const data = await r.json();
+                        const answer = data.choices?.[0]?.message?.content;
+                        if (answer) {
+                            document.getElementById('loading')?.remove();
+                            messages.push({ role: "assistant", content: answer });
+                            chat.innerHTML += '<div class="msg bot">🤖 ' + answer + '</div>';
+                            answered = true;
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            // API 2: Groq Free API
+            if (!answered) {
+                try {
+                    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": "Bearer gsk_free"
+                        },
+                        body: JSON.stringify({
+                            model: "llama3-8b-8192",
+                            messages: messages,
+                            max_tokens: 800
+                        })
+                    });
+                    if (r.ok) {
+                        const data = await r.json();
+                        const answer = data.choices?.[0]?.message?.content;
+                        if (answer) {
+                            document.getElementById('loading')?.remove();
+                            messages.push({ role: "assistant", content: answer });
+                            chat.innerHTML += '<div class="msg bot">🤖 ' + answer + '</div>';
+                            answered = true;
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            // API 3: Blackbox AI (FREE)
+            if (!answered) {
+                try {
+                    const r = await fetch("https://www.blackbox.ai/api/chat", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            messages: messages,
+                            previewToken: null,
+                            codeModelMode: true,
+                            agentMode: {},
+                            trendingAgentMode: {}
+                        })
+                    });
+                    if (r.ok) {
+                        const answer = await r.text();
+                        if (answer && answer.length > 5) {
+                            document.getElementById('loading')?.remove();
+                            messages.push({ role: "assistant", content: answer });
+                            chat.innerHTML += '<div class="msg bot">🤖 ' + answer + '</div>';
+                            answered = true;
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            // API 4: ChatGPT Clone (FREE)
+            if (!answered) {
+                try {
+                    const prompt = messages.map(m => m.content).join('\n');
+                    const r = await fetch("https://free.churchless.tech/v1/chat/completions", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            model: "gpt-3.5-turbo",
+                            messages: messages,
+                            max_tokens: 800
+                        })
+                    });
+                    if (r.ok) {
+                        const data = await r.json();
+                        const answer = data.choices?.[0]?.message?.content;
+                        if (answer) {
+                            document.getElementById('loading')?.remove();
+                            messages.push({ role: "assistant", content: answer });
+                            chat.innerHTML += '<div class="msg bot">🤖 ' + answer + '</div>';
+                            answered = true;
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            // If ALL APIs fail
+            if (!answered) {
                 document.getElementById('loading')?.remove();
-                chat.innerHTML += '<div class="msg bot">🤖 Network error. Please try again.</div>';
+                chat.innerHTML += '<div class="msg bot">🤖 All servers are busy right now. Please try again in 1 minute.</div>';
+                messages.pop(); // remove failed user message
             }
 
             btn.disabled = false;
